@@ -1,0 +1,42 @@
+# Environment variables (Chứa mật khẩu thật & API Key - Tuyệt đối không push)
+.env
+.env.*
+!.env.example
+
+# Python bytecode & cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Pytest & Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# Ruff / Mypy / Linter cache
+.ruff_cache/
+.mypy_cache/
+
+# IDEs & Editors (Tránh conflict cấu hình máy cá nhân)
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Database local dumps / volumes
+pgdata/
+*.sqlite
+*.sqlite3
+*.db
