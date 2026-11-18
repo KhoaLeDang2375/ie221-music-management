@@ -13,7 +13,7 @@ class BaseService:
     def _commit_and_refresh(self, instance: ModelType) -> ModelType:
         """Lưu mới hoặc cập nhật bản ghi được cung cấp và đồng bộ lại dữ liệu từ DB."""
         try:
-            self.db.app(instance)
+            self.db.add(instance) 
             # Sau do commit 
             self.db.commit()
             self.db.refresh(instance)
