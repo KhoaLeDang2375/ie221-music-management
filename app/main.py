@@ -1,9 +1,13 @@
 """[PHẦN CHUNG] Điểm khởi chạy ứng dụng FastAPI và đăng ký các Router."""
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.deps import get_db
 from app.routers import auth, catalog, history, playlists, tracks, users
 
 app = FastAPI(
@@ -22,9 +26,20 @@ app.add_middleware(
 
 
 @app.get("/health", tags=["Health"])
-def health_check() -> dict[str, str]:
-    """Kiểm tra nhanh trạng thái hoạt động của API Server."""
-    return {"status": "ok", "project": settings.PROJECT_NAME}
+def health_check(db: Session = Depends(get_db)) -> dict[str, str]:
+    """Kiểm tra trạng thái hoạt động của API Server và kết nối PostgreSQL."""
+    try:
+        db.execute(text("SELECT 1"))
+    except SQLAlchemyError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Không thể kết nối tới cơ sở dữ liệu PostgreSQL",
+        ) from exc
+    return {
+        "status": "ok",
+        "database": "connected",
+        "project": settings.PROJECT_NAME,
+    }
 
 
 app.include_router(auth.router, prefix=f"{settings.API_V1_STR}/auth", tags=["Auth"])

@@ -1,5 +1,4 @@
 """[PHẦN CHUNG] Khởi tạo SQLAlchemy Engine và SessionLocal kết nối PostgreSQL."""
-from sqlalchemy import engine
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 

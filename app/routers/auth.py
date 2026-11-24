@@ -9,7 +9,6 @@ from app.models.user import AppUser
 from app.schemas.auth import TokenResponse, UserRegisterRequest
 from app.schemas.user import UserResponse
 from app.services.auth_service import AuthService
-from app.services.auth_service import AuthService
 
 router = APIRouter()
 

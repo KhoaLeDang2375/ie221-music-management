@@ -31,11 +31,16 @@
 ├── database/
 │   ├── init/
 │   │   ├── 01_chinook_original.sql          # Dữ liệu Chinook PostgreSQL gốc
-│   │   └── 02_transform_schema_and_seed.sql # Script chuyển sang 9 bảng & tạo dữ liệu mẫu
+│   │   ├── 02_transform_schema_and_seed.sql # Script chuyển sang 9 bảng & tạo dữ liệu mẫu
+│   │   └── 03_seed_vietnamese_music.sql     # Bổ sung thể loại, nghệ sĩ, album, bài hát tiếng Việt
 │   └── README_DATABASE.md                   # Chi tiết về Database
 ├── docs/                            # Tài liệu Phân tích yêu cầu & Thiết kế hệ thống
+├── postman/                         # Postman Collection & Environment kiểm thử 17 Use Cases
 ├── tests/                           # Bộ kiểm thử tự động pytest (tách theo Người A / Người B)
-├── compose.yaml                     # Cấu hình Docker Compose cho PostgreSQL 16
+├── compose.yaml                     # Cấu hình Docker Compose (PostgreSQL 16 + FastAPI Backend)
+├── Dockerfile                       # Đóng gói image Backend FastAPI
+├── pytest.ini                       # Cấu hình pytest
+├── requirements.txt                 # Thư viện Python cho Backend & kiểm thử
 ├── .env.example                     # Mẫu cấu hình biến môi trường
 ├── README.md                        # Tài liệu hướng dẫn chung (file này)
 └── README_GIT_WORKFLOW.md           # Quy tắc chia việc, code và merge Git tránh conflict
@@ -43,46 +48,50 @@
 
 ---
 
-## 3. Hướng Dẫn Khởi Chạy Database Trên Docker
+## 3. Khởi Chạy Nhanh Toàn Hệ Thống Bằng Docker (1 Lệnh — `NFR-04`)
 
-### Bước 1: Tạo file biến môi trường `.env`
-Sao chép từ file mẫu `.env.example`:
+### Bước 1: (Tùy chọn) Tạo file biến môi trường `.env`
+Nếu muốn đổi secret key hoặc điền `GROQ_API_KEY` thật để test API Chatbot (`UC-12`), sao chép từ file mẫu `.env.example`:
 
 ```powershell
 # Trên Windows PowerShell
 Copy-Item .env.example .env
 ```
-*(Hoặc trên macOS/Linux: `cp .env.example .env`)*
+*(Trên macOS/Linux: `cp .env.example .env`. Nếu bỏ qua bước này, `compose.yaml` vẫn dùng sẵn bộ cấu hình mặc định an toàn để chạy local ngay lập tức.)*
 
-### Bước 2: Khởi chạy container PostgreSQL 16
-Đảm bảo Docker Desktop đang bật, sau đó chạy lệnh:
+### Bước 2: Khởi chạy đồng thời PostgreSQL 16 và FastAPI Backend
+Đảm bảo Docker Desktop đang bật, sau đó chạy **một lệnh duy nhất**:
 
 ```powershell
-docker compose up -d
+docker compose up -d --build
 ```
 
-Khi chạy lần đầu, Docker sẽ tự động nạp `01_chinook_original.sql` và `02_transform_schema_and_seed.sql` để tạo sẵn **9 bảng chuẩn**:
-1. `app_user` (69 tài khoản mẫu, mật khẩu băm `bcrypt`)
-2. `artist` (275 nghệ sĩ)
-3. `album` (347 album)
-4. `genre` (25 thể loại)
-5. `media_type` (5 định dạng âm thanh)
-6. `track` (3,503 bài hát – đã lược bỏ cột `bytes` và `unit_price`, đổi `milliseconds` thành `duration_ms`)
-7. `playlist` (18 playlist mẫu đã gán `user_id`, `description`, `created_at`)
-8. `playlist_track` (8,715 liên kết bài hát trong playlist kèm `added_at` và `ON DELETE CASCADE`)
-9. `listening_history` (303 bản ghi lịch sử nghe nhạc mẫu)
+Khi chạy lần đầu, Docker sẽ tự động:
+1. Nạp `01_chinook_original.sql`, `02_transform_schema_and_seed.sql` và `03_seed_vietnamese_music.sql` để tạo **9 bảng chuẩn**:
+   - `app_user` (69 tài khoản mẫu, mật khẩu băm `bcrypt`)
+   - `artist` (281 nghệ sĩ, gồm 275 Chinook + 6 nghệ sĩ Việt)
+   - `album` (353 album)
+   - `genre` (29 thể loại, gồm 25 gốc + 4 thể loại nhạc Việt)
+   - `media_type` (5 định dạng âm thanh)
+   - `track` (3,527 bài hát – 3,503 Chinook + 24 bài hát tiếng Việt có dấu)
+   - `playlist` (18 playlist mẫu)
+   - `playlist_track` (8,715 liên kết bài hát trong playlist)
+   - `listening_history` (303 bản ghi lịch sử nghe nhạc mẫu)
+2. Build và khởi chạy container `music_management_api` (FastAPI) sau khi Database đã `healthy`.
 
-### Bước 3: Kiểm tra Database đã sẵn sàng chưa
-```powershell
-docker exec music_management_db psql -U postgres -d music_db -c "\dt"
-```
+### Bước 3: Kiểm tra API & Database
+* **Healthcheck API + DB:** http://localhost:8000/health
+* **Swagger UI (Interactive Docs):** http://localhost:8000/docs
+* **Kiểm tra trạng thái container:**
+  ```powershell
+  docker compose ps
+  ```
 
 > [!TIP]
 > **Làm mới (Reset) lại toàn bộ Database về trạng thái ban đầu:**
-> Nếu trong lúc test bạn xóa/sửa dữ liệu và muốn khôi phục lại từ đầu, chỉ cần chạy:
 > ```powershell
 > docker compose down -v
-> docker compose up -d
+> docker compose up -d --build
 > ```
 
 ---
@@ -91,7 +100,7 @@ docker exec music_management_db psql -U postgres -d music_db -c "\dt"
 
 Mở **DBeaver** $\rightarrow$ **New Database Connection** $\rightarrow$ Chọn **PostgreSQL** và nhập thông số:
 
-| Thông số | Giá trị mặc định (trong `.env`) |
+| Thông số | Giá trị mặc định |
 | :--- | :--- |
 | **Host** | `localhost` |
 | **Port** | `5432` |
@@ -114,3 +123,28 @@ $$\texttt{<username>@123}$$
 | `11` | `luisg` | `luisg@123` | `user` | `true` | Người dùng thường (từ Chinook Customer #1) |
 | `68` | `manoj.pareek` | `manoj.pareek@123` | `user` | **`false`** | Kiểm thử tài khoản bị khóa (`BR-06`, `UC-02`) |
 | `69` | `puja_srivastava` | `puja_srivastava@123` | `user` | **`false`** | Kiểm thử tài khoản bị khóa (`BR-06`, `UC-02`) |
+
+---
+
+## 6. Chạy Kiểm Thử Tự Động (`pytest`)
+
+* **Chạy trực tiếp trong container Docker (khuyến nghị, không cần cài Python trên máy):**
+  ```powershell
+  docker compose exec api pytest -v
+  ```
+* **Hoặc chạy trên máy local (sau khi đã bật `db` và cài `requirements.txt` trong `.venv`):**
+  ```powershell
+  python -m venv .venv
+  .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+  .\.venv\Scripts\python.exe -m pytest -v
+  ```
+
+---
+
+## 7. Kiểm Thử Bằng Postman
+
+1. Mở **Postman** $\rightarrow$ **Import** $\rightarrow$ chọn 2 file trong thư mục `postman/`:
+   * [`postman/IE221_Music_Management.postman_collection.json`](postman/IE221_Music_Management.postman_collection.json)
+   * [`postman/IE221_Local.postman_environment.json`](postman/IE221_Local.postman_environment.json)
+2. Chọn Environment **`IE221 Music Management - Local`** ở góc phải trên.
+3. Chạy lần lượt thư mục **`1. Auth`** (tự động lưu `user_token` và `admin_token`) rồi chạy các thư mục còn lại hoặc bấm **Run collection**.

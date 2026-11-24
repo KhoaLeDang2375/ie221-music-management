@@ -1,0 +1,557 @@
+{
+  "info": {
+    "name": "IE221 Music Management RESTful API",
+    "description": "Bộ kiểm thử Postman cho toàn bộ 17 Use Cases (UC-01..UC-17) của Hệ thống Quản lý Âm nhạc IE221.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "0. Health",
+      "item": [
+        {
+          "name": "Health Check (API + PostgreSQL)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Database connected', () => pm.expect(pm.response.json().database).to.eql('connected'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/health"
+          }
+        }
+      ]
+    },
+    {
+      "name": "1. Auth (UC-01, UC-02, UC-05)",
+      "item": [
+        {
+          "name": "UC-01 Register User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Created 201 or Conflict 409 if rerun', () => pm.expect([201, 409]).to.include(pm.response.code));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"postman_demo\",\n  \"email\": \"postman_demo@example.com\",\n  \"full_name\": \"Người Dùng Postman\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/auth/register"
+          }
+        },
+        {
+          "name": "UC-02 Login Regular User (testuser)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Login 200', () => pm.response.to.have.status(200));",
+                  "pm.environment.set('user_token', pm.response.json().access_token);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "username", "value": "testuser" },
+                { "key": "password", "value": "testuser@123" }
+              ]
+            },
+            "url": "{{base_url}}/api/v1/auth/login"
+          }
+        },
+        {
+          "name": "UC-02 Login Admin (admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Admin login 200', () => pm.response.to.have.status(200));",
+                  "pm.environment.set('admin_token', pm.response.json().access_token);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "username", "value": "admin" },
+                { "key": "password", "value": "admin@123" }
+              ]
+            },
+            "url": "{{base_url}}/api/v1/auth/login"
+          }
+        },
+        {
+          "name": "UC-05 Get My Profile",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('No password_hash leaked', () => pm.expect(pm.response.json()).to.not.have.property('password_hash'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{user_token}}" }],
+            "url": "{{base_url}}/api/v1/auth/me"
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Users Admin (UC-16)",
+      "item": [
+        {
+          "name": "UC-16 List Users (Admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));"],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+            "url": "{{base_url}}/api/v1/users?page=1&page_size=20"
+          }
+        },
+        {
+          "name": "UC-16 Get User Detail",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+            "url": "{{base_url}}/api/v1/users/2"
+          }
+        },
+        {
+          "name": "UC-16 Self-Lock Blocked (409 BR-08)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": ["pm.test('BR-08 returns 409', () => pm.response.to.have.status(409));"],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"is_active\": false\n}" },
+            "url": "{{base_url}}/api/v1/users/1"
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Tracks (UC-03, UC-14)",
+      "item": [
+        {
+          "name": "UC-03 Search Vietnamese Track (Accent-Insensitive)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Found track', () => pm.expect(pm.response.json().total).to.be.above(0));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/v1/tracks?q=chay%20ngay%20di&page=1&page_size=20"
+          }
+        },
+        {
+          "name": "UC-03 Get Track Detail",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/v1/tracks/1"
+          }
+        },
+        {
+          "name": "UC-14 Create Track (Admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Created 201', () => pm.response.to.have.status(201));",
+                  "pm.environment.set('created_track_id', pm.response.json().track_id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Bài Hát Postman Demo\",\n  \"album_id\": 1,\n  \"media_type_id\": 1,\n  \"genre_id\": 1,\n  \"composer\": \"Nhạc Sĩ Demo\",\n  \"duration_ms\": 210000\n}"
+            },
+            "url": "{{base_url}}/api/v1/tracks"
+          }
+        },
+        {
+          "name": "UC-14 Update Track (Admin)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Bài Hát Postman Đã Sửa\",\n  \"album_id\": 1,\n  \"media_type_id\": 1,\n  \"genre_id\": 1,\n  \"composer\": \"Nhạc Sĩ Demo\",\n  \"duration_ms\": 225000\n}"
+            },
+            "url": "{{base_url}}/api/v1/tracks/{{created_track_id}}"
+          }
+        },
+        {
+          "name": "UC-14 Delete Track (Admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": ["pm.test('Deleted 204', () => pm.response.to.have.status(204));"],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+            "url": "{{base_url}}/api/v1/tracks/{{created_track_id}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Catalog (UC-04, UC-15)",
+      "item": [
+        {
+          "name": "UC-04 List Artists",
+          "request": { "method": "GET", "url": "{{base_url}}/api/v1/artists?page=1&page_size=20" }
+        },
+        {
+          "name": "UC-04 Artist Detail",
+          "request": { "method": "GET", "url": "{{base_url}}/api/v1/artists/1" }
+        },
+        {
+          "name": "UC-15 Create Artist (Admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Created 201', () => pm.response.to.have.status(201));",
+                  "pm.environment.set('created_artist_id', pm.response.json().artist_id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Nghệ Sĩ Postman Demo\"\n}" },
+            "url": "{{base_url}}/api/v1/artists"
+          }
+        },
+        {
+          "name": "UC-15 Create Album (Admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Created 201', () => pm.response.to.have.status(201));",
+                  "pm.environment.set('created_album_id', pm.response.json().album_id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"title\": \"Album Postman Demo\",\n  \"artist_id\": {{created_artist_id}}\n}" },
+            "url": "{{base_url}}/api/v1/albums"
+          }
+        },
+        {
+          "name": "UC-15 Block Delete Artist With Album (409 BR-04)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": ["pm.test('BR-04 returns 409', () => pm.response.to.have.status(409));"],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+            "url": "{{base_url}}/api/v1/artists/{{created_artist_id}}"
+          }
+        },
+        {
+          "name": "UC-15 Delete Album (Admin)",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+            "url": "{{base_url}}/api/v1/albums/{{created_album_id}}"
+          }
+        },
+        {
+          "name": "UC-15 Delete Empty Artist (Admin)",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+            "url": "{{base_url}}/api/v1/artists/{{created_artist_id}}"
+          }
+        },
+        {
+          "name": "UC-04 List Genres",
+          "request": { "method": "GET", "url": "{{base_url}}/api/v1/genres?page=1&page_size=20" }
+        },
+        {
+          "name": "UC-04 List Media Types",
+          "request": { "method": "GET", "url": "{{base_url}}/api/v1/media-types" }
+        }
+      ]
+    },
+    {
+      "name": "5. Playlists & Chatbot (UC-06..UC-12, UC-17)",
+      "item": [
+        {
+          "name": "UC-06 Create Playlist",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Created 201', () => pm.response.to.have.status(201));",
+                  "pm.environment.set('created_playlist_id', pm.response.json().playlist_id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{user_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Playlist Postman Chill\",\n  \"description\": \"Danh sách kiểm thử API\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/playlists"
+          }
+        },
+        {
+          "name": "UC-07 List My Playlists",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{user_token}}" }],
+            "url": "{{base_url}}/api/v1/playlists/me?page=1&page_size=20"
+          }
+        },
+        {
+          "name": "UC-10 Add Track To Playlist",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{user_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"track_id\": 1\n}" },
+            "url": "{{base_url}}/api/v1/playlists/{{created_playlist_id}}/tracks"
+          }
+        },
+        {
+          "name": "UC-07 Get Playlist Detail",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{user_token}}" }],
+            "url": "{{base_url}}/api/v1/playlists/{{created_playlist_id}}"
+          }
+        },
+        {
+          "name": "UC-08 Update Playlist (Owner)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{user_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Playlist Postman Đã Đổi Tên\",\n  \"description\": \"Cập nhật thành công\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/playlists/{{created_playlist_id}}"
+          }
+        },
+        {
+          "name": "UC-17 Admin List All Playlists",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+            "url": "{{base_url}}/api/v1/playlists?page=1&page_size=20"
+          }
+        },
+        {
+          "name": "UC-17 Admin Edit Blocked (403 BR-02)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": ["pm.test('BR-02 blocks admin edit 403', () => pm.response.to.have.status(403));"],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Admin Hack\"\n}" },
+            "url": "{{base_url}}/api/v1/playlists/{{created_playlist_id}}"
+          }
+        },
+        {
+          "name": "UC-11 Remove Track From Playlist",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{user_token}}" }],
+            "url": "{{base_url}}/api/v1/playlists/{{created_playlist_id}}/tracks/1"
+          }
+        },
+        {
+          "name": "UC-09 Delete Playlist",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{user_token}}" }],
+            "url": "{{base_url}}/api/v1/playlists/{{created_playlist_id}}"
+          }
+        },
+        {
+          "name": "UC-12 Generate AI Playlist (Groq)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{user_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"prompt\": \"10 bài Rock để chạy bộ\",\n  \"limit\": 10\n}"
+            },
+            "url": "{{base_url}}/api/v1/playlists/generate-ai"
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Listening History (UC-13)",
+      "item": [
+        {
+          "name": "UC-13 Record Listen",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": ["pm.test('Created 201', () => pm.response.to.have.status(201));"],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{user_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"track_id\": 1\n}" },
+            "url": "{{base_url}}/api/v1/me/history"
+          }
+        },
+        {
+          "name": "UC-13 Get 20 Recent Tracks",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Max 20 items', () => pm.expect(pm.response.json().length).to.be.at.most(20));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{user_token}}" }],
+            "url": "{{base_url}}/api/v1/me/history?limit=20"
+          }
+        }
+      ]
+    }
+  ]
+}
