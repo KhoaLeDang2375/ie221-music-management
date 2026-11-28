@@ -17,8 +17,12 @@ from app.schemas.playlist import (
     PlaylistTrackResponse,
     PlaylistUpdate,
 )
+from app.schemas.chatbot import(
+    ChatbotPlaylistRequest,
+    ChatbotPlaylistResponse,
+)
 from app.services.playlist_service import PlaylistService
-
+from app.services.chatbot_service  import ChatbotService
 router = APIRouter()
 
 @router.post(
@@ -132,3 +136,16 @@ def remove_track_from_playlist(
     PlaylistService(db).remove_track_from_playlist(
         current_user, playlist_id, track_id
     )
+
+@router.post(
+    "/generate-ai",
+    status_code=status.HTTP_201_CREATED,
+    response_model=ChatbotPlaylistResponse,
+    summary="Tạo playlist tự động bằng Chatbot Groq AI (UC-12)",
+)
+def generate_playlist_ai(
+    req: ChatbotPlaylistRequest,
+    current_user: AppUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ChatbotPlaylistResponse:
+    return ChatbotService(db).generate_playlist_from_prompt(current_user, req)
